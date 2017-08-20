@@ -1,0 +1,13 @@
+version: '2'
+
+services:
+  frontend:
+    build: frontend
+
+  backend:
+    build: backend
+
+  proxy:
+    build: proxy
+    ports: 
+     - 80:80

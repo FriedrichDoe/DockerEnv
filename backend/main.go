@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 /*
@@ -16,13 +18,50 @@ type person struct {
 	Occupation string
 }
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
 func main() {
 	fmt.Println("Hey Bosch")
-	http.HandleFunc("/", index)
+
+	http.HandleFunc("/person", index)
+	http.HandleFunc("/ws", socket)
+
+	// log.Println(http.ListenAndServeTLS(":7654", "cert.pem", "key.pem", nil))
 	log.Fatal(http.ListenAndServe(":7654", nil))
 }
 
+func socket(w http.ResponseWriter, r *http.Request) {
+
+	log.Println("websocket call")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println("websocket connection open")
+
+	for {
+		messageType, recvMsg, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("recv from socket:", recvMsg)
+			break
+		}
+		if err := conn.WriteMessage(messageType, []byte("pong")); err != nil {
+			log.Println("error on write to websocket")
+			break
+		}
+		log.Println("answer websocket successful")
+	}
+
+}
+
 func index(w http.ResponseWriter, r *http.Request) {
+	log.Println("rest call")
+
 	p := person{
 		"Fedja",
 		26,

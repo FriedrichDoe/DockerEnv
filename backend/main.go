@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
+	nats "github.com/nats-io/go-nats"
 )
 
 /*
@@ -18,6 +21,8 @@ type person struct {
 	Occupation string
 }
 
+var wg sync.WaitGroup
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -27,11 +32,40 @@ var upgrader = websocket.Upgrader{
 func main() {
 	fmt.Println("Hey Bosch")
 
+	go sendNats()
+	go recvNats()
+
 	http.HandleFunc("/person", index)
 	http.HandleFunc("/ws", socket)
 
-	// log.Println(http.ListenAndServeTLS(":7654", "cert.pem", "key.pem", nil))
 	log.Fatal(http.ListenAndServe(":7654", nil))
+}
+
+func recvNats() {
+	log.Println("recv nats start")
+	nc, err := nats.Connect("nats://nats:4222")
+	if err != nil {
+		panic(err)
+	}
+
+	nc.Subscribe("hmi", func(m *nats.Msg) {
+		fmt.Printf("Received a message: %s\n", string(m.Data))
+	})
+
+	wg.Wait()
+}
+
+func sendNats() {
+	log.Println("send nats start")
+	nc, err := nats.Connect("nats://nats:4222")
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		nc.Publish("hmi", []byte("Hello World hmi"))
+		time.Sleep(time.Millisecond * 1000)
+	}
 }
 
 func socket(w http.ResponseWriter, r *http.Request) {

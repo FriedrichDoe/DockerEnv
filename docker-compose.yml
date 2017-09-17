@@ -6,8 +6,17 @@ services:
 
   backend:
     build: backend
+    depends_on: 
+     - nats
+
+  nats:
+    image: nats
 
   proxy:
     build: proxy
+    depends_on: 
+     - backend
+     - frontend
+     - nats
     ports: 
      - 80:80

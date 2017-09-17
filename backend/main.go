@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	pb "workspace/DockerEnv/backend/tutorial"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	nats "github.com/nats-io/go-nats"
 )
@@ -43,13 +46,22 @@ func main() {
 
 func recvNats() {
 	log.Println("recv nats start")
-	nc, err := nats.Connect("nats://nats:4222")
+	nc, err := nats.Connect("nats://localhost:4222")
 	if err != nil {
 		panic(err)
 	}
 
+	book2 := &pb.AddressBook{}
+
 	nc.Subscribe("hmi", func(m *nats.Msg) {
-		fmt.Printf("Received a message: %s\n", string(m.Data))
+		if err := proto.Unmarshal(m.Data, book2); err != nil {
+			log.Fatalln("lol ->", err)
+		}
+
+		bs, err1 := json.Marshal(book2)
+		if err1 != nil {
+			panic(err1)
+		}
 	})
 
 	wg.Wait()
@@ -57,13 +69,43 @@ func recvNats() {
 
 func sendNats() {
 	log.Println("send nats start")
-	nc, err := nats.Connect("nats://nats:4222")
+	nc, err := nats.Connect("nats://localhost:4222")
 	if err != nil {
 		panic(err)
 	}
 
+	p1 := &pb.Person{
+		Id:    1235123515,
+		Name:  "Fedja Doe",
+		Email: "fdoe@spassst.com",
+		Phones: []*pb.Person_PhoneNumber{
+			{Number: "555-4321", Type: pb.Person_WORK},
+		},
+	}
+
+	p2 := &pb.Person{
+		Id:    87967707,
+		Name:  "deine Mutter",
+		Email: "mudda@deine.org",
+		Phones: []*pb.Person_PhoneNumber{
+			{Number: "6666-12345", Type: pb.Person_HOME},
+		},
+	}
+
+	book := &pb.AddressBook{
+		People: []*pb.Person{
+			p1,
+			p2,
+		},
+	}
+
+	out, err := proto.Marshal(book)
+	if err != nil {
+		log.Fatalln("failed to encode book", err)
+	}
+
 	for {
-		nc.Publish("hmi", []byte("Hello World hmi"))
+		nc.Publish("hmi", out)
 		time.Sleep(time.Millisecond * 1000)
 	}
 }
